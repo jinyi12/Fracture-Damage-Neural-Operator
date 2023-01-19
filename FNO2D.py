@@ -262,7 +262,7 @@ class IPHI(nn.Module):
 
         self.center = torch.tensor([0.0001,0.0001], device="cuda").reshape(1,1,2)
 
-        self.B = np.pi*torch.pow(2, torch.arange(0, self.width//5, dtype=torch.float, device="cuda")).reshape(1,1,1,self.width//5)
+        self.B = np.pi*torch.pow(2, torch.arange(0, self.width//4, dtype=torch.float, device="cuda")).reshape(1,1,1,self.width//4)
 
 
     def forward(self, x, code=None):
@@ -271,16 +271,17 @@ class IPHI(nn.Module):
 
         # some feature engineering related to mesh
         angle = torch.atan2(x[:,:,1] - self.center[:,:, 1], x[:,:,0] - self.center[:,:, 0])
-        radius = torch.norm(x[:, :, :2] - self.center, dim=-1, p=2)
+        # radius = torch.norm(x[:, :, :2] - self.center, dim=-1, p=2)
+        radius = torch.norm(x - self.center, dim=-1, p=2)
 
         # deforming the entire input, not just the mesh
-        xd = torch.stack([x[:,:,0], x[:,:,1], x[:, :, 2], angle, radius], dim=-1)
-        # xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)
+        # xd = torch.stack([x[:,:,0], x[:,:,1], x[:, :, 2], angle, radius], dim=-1)
+        xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)
 
         # sin features from NeRF
         b, n, d = xd.shape[0], xd.shape[1], xd.shape[2]
-        x_sin = torch.sin(self.B * xd.view(b,n,d,1)).view(b,n,d*self.width//5)
-        x_cos = torch.cos(self.B * xd.view(b,n,d,1)).view(b,n,d*self.width//5)
+        x_sin = torch.sin(self.B * xd.view(b,n,d,1)).view(b,n,d*self.width//4)
+        x_cos = torch.cos(self.B * xd.view(b,n,d,1)).view(b,n,d*self.width//4)
         xd = self.fc0(xd)
         xd = torch.cat([xd, x_sin, x_cos], dim=-1).reshape(b,n,3*self.width)
 
