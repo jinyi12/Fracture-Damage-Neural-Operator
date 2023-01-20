@@ -51,7 +51,7 @@ class SpectralConv2d(nn.Module):
         factor2 = self.compl_mul2d(u_ft[:, :, -self.modes1:, :self.modes2], self.weights2)
 
         # Return to physical space
-        if (x_out == None).any():
+        if x_out == None:
             out_ft = torch.zeros(batchsize, self.out_channels, s1, s2 // 2 + 1, dtype=torch.cfloat, device=u.device)
             out_ft[:, :, :self.modes1, :self.modes2] = factor1
             out_ft[:, :, -self.modes1:, :self.modes2] = factor2
@@ -177,7 +177,7 @@ class FNO2d(nn.Module):
         self.b1 = nn.Conv2d(2, self.width, 1)
         self.b2 = nn.Conv2d(2, self.width, 1)
         self.b3 = nn.Conv2d(2, self.width, 1)
-        self.b4 = nn.Conv1d(3, self.width, 1)
+        self.b4 = nn.Conv1d(2, self.width, 1)
 
         self.fc1 = nn.Linear(self.width, 128)
         self.fc2 = nn.Linear(128, out_channels)
@@ -251,13 +251,13 @@ class IPHI(nn.Module):
         # fc0 is 4 because xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)
         # self.fc0 = nn.Linear(4, self.width) 
 
-        self.fc0 = nn.Linear(5, self.width)
+        self.fc0 = nn.Linear(4, self.width)
         self.fc_code = nn.Linear(42, self.width)
         self.fc_no_code = nn.Linear(3*self.width, 4*self.width)
         self.fc1 = nn.Linear(4*self.width, 4*self.width)
         self.fc2 = nn.Linear(4*self.width, 4*self.width)
         self.fc3 = nn.Linear(4*self.width, 4*self.width)
-        self.fc4 = nn.Linear(4*self.width, 3)
+        self.fc4 = nn.Linear(4*self.width, 2)
         self.activation = torch.tanh
 
         self.center = torch.tensor([0.0001,0.0001], device="cuda").reshape(1,1,2)
@@ -280,8 +280,12 @@ class IPHI(nn.Module):
 
         # sin features from NeRF
         b, n, d = xd.shape[0], xd.shape[1], xd.shape[2]
-        x_sin = torch.sin(self.B * xd.view(b,n,d,1)).view(b,n,d*self.width//4)
-        x_cos = torch.cos(self.B * xd.view(b,n,d,1)).view(b,n,d*self.width//4)
+        
+
+        x_sin = torch.sin(self.B.cpu() * xd.view(b,n,d,1).cpu()).view(b,n,d*self.width//4).cuda()
+        x_cos = torch.cos(self.B.cpu() * xd.view(b,n,d,1).cpu()).view(b,n,d*self.width//4).cuda()
+        
+            
         xd = self.fc0(xd)
         xd = torch.cat([xd, x_sin, x_cos], dim=-1).reshape(b,n,3*self.width)
 
