@@ -199,13 +199,35 @@ class LpLoss(object):
         diff_norms = torch.norm(x.reshape(num_examples,-1) - y.reshape(num_examples,-1), self.p, 1)
         y_norms = torch.norm(y.reshape(num_examples,-1), self.p, 1)
 
+        loss = diff_norms/y_norms
+
         if self.reduction:
             if self.size_average:
-                return torch.mean(diff_norms/y_norms)
+                return torch.mean(loss) / num_examples
             else:
-                return torch.sum(diff_norms/y_norms)
+                return torch.sum(loss) / num_examples
 
-        return diff_norms/y_norms
+        return loss / num_examples 
+
+    def __call__(self, x, y):
+        return self.rel(x, y)
+
+# weighted MSE loss
+class MSELoss_weighted(object):
+    def __init__(self, weights_tensor):
+        super(MSELoss_weighted, self).__init__()
+
+        #Dimension and Lp-norm type are postive
+        self.weights_tensor = weights_tensor
+
+    def rel(self, x, y):
+
+        mse = torch.nn.MSELoss(reduction='none')
+        loss = mse(x, y) * self.weights_tensor
+
+        loss = loss.sum()
+
+        return loss/ x.shape[0] 
 
     def __call__(self, x, y):
         return self.rel(x, y)

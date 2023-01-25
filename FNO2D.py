@@ -179,8 +179,8 @@ class FNO2d(nn.Module):
         self.b3 = nn.Conv2d(2, self.width, 1)
         self.b4 = nn.Conv1d(2, self.width, 1)
 
-        self.fc1 = nn.Linear(self.width, 128)
-        self.fc2 = nn.Linear(128, out_channels)
+        self.fc1 = nn.Linear(self.width, 256)
+        self.fc2 = nn.Linear(256, out_channels)
 
     def forward(self, u, code=None, x_in=None, x_out=None, iphi=None):
         # u (batch, Nx, d) the input value
@@ -199,35 +199,39 @@ class FNO2d(nn.Module):
         u = u.permute(0, 2, 1)
 
         uc1 = self.conv0(u, x_in=x_in, iphi=iphi, code=code)
+        # uc1 after conv0 is not outputting same values
         uc3 = self.b0(grid)
         uc = uc1 + uc3
-        uc = F.gelu(uc)
+        uc = F.selu(uc)
 
         uc1 = self.conv1(uc)
         uc2 = self.w1(uc)
         uc3 = self.b1(grid)
         uc = uc1 + uc2 + uc3
-        uc = F.gelu(uc)
+        uc = F.selu(uc)
 
         uc1 = self.conv2(uc)
         uc2 = self.w2(uc)
         uc3 = self.b2(grid)
         uc = uc1 + uc2 + uc3
-        uc = F.gelu(uc)
+        uc = F.selu(uc)
 
         uc1 = self.conv3(uc)
         uc2 = self.w3(uc)
         uc3 = self.b3(grid)
         uc = uc1 + uc2 + uc3
-        uc = F.gelu(uc)
+        uc = F.selu(uc)
+
+        # print("uc after conv3: ", uc)
 
         u = self.conv4(uc, x_out=x_out, iphi=iphi, code=code)
+        # u after conv4 is all constant
         u3 = self.b4(x_out.permute(0, 2, 1))
         u = u + u3
 
         u = u.permute(0, 2, 1)
         u = self.fc1(u)
-        u = F.gelu(u)
+        u = F.selu(u)
         u = self.fc2(u)
         return u
 
@@ -258,7 +262,7 @@ class IPHI(nn.Module):
         self.fc2 = nn.Linear(4*self.width, 4*self.width)
         self.fc3 = nn.Linear(4*self.width, 4*self.width)
         self.fc4 = nn.Linear(4*self.width, 2)
-        self.activation = torch.tanh
+        self.activation = torch.selu
 
         self.center = torch.tensor([0.0001,0.0001], device="cuda").reshape(1,1,2)
 
@@ -270,38 +274,39 @@ class IPHI(nn.Module):
         # code (batch, N_features)
 
         # some feature engineering related to mesh
-        angle = torch.atan2(x[:,:,1] - self.center[:,:, 1], x[:,:,0] - self.center[:,:, 0])
-        # radius = torch.norm(x[:, :, :2] - self.center, dim=-1, p=2)
-        radius = torch.norm(x - self.center, dim=-1, p=2)
+        # angle = torch.atan2(x[:,:,1] - self.center[:,:, 1], x[:,:,0] - self.center[:,:, 0])
+        # # radius = torch.norm(x[:, :, :2] - self.center, dim=-1, p=2)
+        # radius = torch.norm(x - self.center, dim=-1, p=2)
 
-        # deforming the entire input, not just the mesh
-        # xd = torch.stack([x[:,:,0], x[:,:,1], x[:, :, 2], angle, radius], dim=-1)
-        xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)
+        # # deforming the entire input, not just the mesh
+        # # xd = torch.stack([x[:,:,0], x[:,:,1], x[:, :, 2], angle, radius], dim=-1)
+        # xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)
 
-        # sin features from NeRF
-        b, n, d = xd.shape[0], xd.shape[1], xd.shape[2]
+        # # sin features from NeRF
+        # b, n, d = xd.shape[0], xd.shape[1], xd.shape[2]
         
 
-        x_sin = torch.sin(self.B.cpu() * xd.view(b,n,d,1).cpu()).view(b,n,d*self.width//4).cuda()
-        x_cos = torch.cos(self.B.cpu() * xd.view(b,n,d,1).cpu()).view(b,n,d*self.width//4).cuda()
+        # x_sin = torch.sin(self.B.cpu() * xd.view(b,n,d,1).cpu()).view(b,n,d*self.width//4).cuda()
+        # x_cos = torch.cos(self.B.cpu() * xd.view(b,n,d,1).cpu()).view(b,n,d*self.width//4).cuda()
         
             
-        xd = self.fc0(xd)
-        xd = torch.cat([xd, x_sin, x_cos], dim=-1).reshape(b,n,3*self.width)
+        # xd = self.fc0(xd)
+        # xd = torch.cat([xd, x_sin, x_cos], dim=-1).reshape(b,n,3*self.width)
 
-        if code!= None:
-            cd = self.fc_code(code)
-            cd = cd.unsqueeze(1).repeat(1,xd.shape[1],1)
-            xd = torch.cat([cd,xd],dim=-1)
-        else:
-            xd = self.fc_no_code(xd)
+        # if code!= None:
+        #     cd = self.fc_code(code)
+        #     cd = cd.unsqueeze(1).repeat(1,xd.shape[1],1)
+        #     xd = torch.cat([cd,xd],dim=-1)
+        # else:
+        #     xd = self.fc_no_code(xd)
 
-        xd = self.fc1(xd)
-        xd = self.activation(xd)
-        xd = self.fc2(xd)
-        xd = self.activation(xd)
-        xd = self.fc3(xd)
-        xd = self.activation(xd)
-        xd = self.fc4(xd)
-        return x + x * xd
+        # xd = self.fc1(xd)
+        # xd = self.activation(xd)
+        # xd = self.fc2(xd)
+        # xd = self.activation(xd)
+        # xd = self.fc3(xd)
+        # xd = self.activation(xd)
+        # xd = self.fc4(xd)
+        # return x + x * xd
+        return x
 
