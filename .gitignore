@@ -8,3 +8,5 @@
 /wandb
 /.vscode
 /Model
+/artifacts
+/reports
