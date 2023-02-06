@@ -233,6 +233,7 @@ class FNO2d(nn.Module):
         u = self.fc1(u)
         u = F.selu(u)
         u = self.fc2(u)
+        u = torch.sigmoid(u)
         return u
 
     def get_grid(self, shape, device):
