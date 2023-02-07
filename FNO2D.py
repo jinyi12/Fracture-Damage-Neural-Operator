@@ -313,8 +313,16 @@ class IPHI(nn.Module):
         # xd = torch.stack([x[:,:,0], x[:,:,1], x[:, :, 2], angle, radius], dim=-1)
         # xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)
 
-        xd = torch.stack([x[:, :, 0], x[:, :, 1]], dim=-1)
+        # xd = torch.stack([x[:, :, 0], x[:, :, 1]], dim=-1)
+                
+        # some feature engineering related to mesh
+        angle = torch.atan2(x[:,:,1] - self.center[:,:, 1], x[:,:,0] - self.center[:,:, 0])
+        radius = torch.norm(x[:, :, :2] - self.center, dim=-1, p=2)
+        radius = torch.norm(x - self.center, dim=-1, p=2)
 
+        xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)
+
+        
         # sin features from NeRF
         b, n, d = xd.shape[0], xd.shape[1], xd.shape[2]
         
