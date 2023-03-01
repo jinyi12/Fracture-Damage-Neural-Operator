@@ -286,9 +286,11 @@ class IPHI(nn.Module):
         # fc0 is 4 because xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)
         # self.fc0 = nn.Linear(4, self.width) 
 
-        self.fc0 = nn.Linear(2, self.width)
+        self.fc0 = nn.Linear(4, self.width)
         self.fc_code = nn.Linear(42, self.width)
-        self.fc_no_code = nn.Linear(2*self.width, 4*self.width)
+        # if using mesh features, then the input is 3*self.width else 2*self.width
+        # self.fc_no_code = nn.Linear(2*self.width, 4*self.width)
+        self.fc_no_code = nn.Linear(3*self.width, 4*self.width)
         self.fc1 = nn.Linear(4*self.width, 4*self.width)
         self.fc2 = nn.Linear(4*self.width, 4*self.width)
         self.fc3 = nn.Linear(4*self.width, 4*self.width)
@@ -305,22 +307,20 @@ class IPHI(nn.Module):
         # code (batch, N_features)
 
         # some feature engineering related to mesh
-        # angle = torch.atan2(x[:,:,1] - self.center[:,:, 1], x[:,:,0] - self.center[:,:, 0])
-        # radius = torch.norm(x[:, :, :2] - self.center, dim=-1, p=2)
-        # radius = torch.norm(x - self.center, dim=-1, p=2)
-
-        # deforming the entire input, not just the mesh
-        # xd = torch.stack([x[:,:,0], x[:,:,1], x[:, :, 2], angle, radius], dim=-1)
-        # xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)
-
-        # xd = torch.stack([x[:, :, 0], x[:, :, 1]], dim=-1)
-                
-        # some feature engineering related to mesh
         angle = torch.atan2(x[:,:,1] - self.center[:,:, 1], x[:,:,0] - self.center[:,:, 0])
         radius = torch.norm(x[:, :, :2] - self.center, dim=-1, p=2)
         radius = torch.norm(x - self.center, dim=-1, p=2)
 
-        xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)
+        # deforming the entire input, not just the mesh
+        xd = torch.stack([x[:,:,0], x[:,:,1], angle, radius], dim=-1)        
+        # xd = torch.stack([x[:,:,0], x[:,:,1]], dim=-1)
+                
+        # some feature engineering related to mesh
+        # angle = torch.atan2(x[:,:,1] - self.center[:,:, 1], x[:,:,0] - self.center[:,:, 0])
+        # radius = torch.norm(x[:, :, :2] - self.center, dim=-1, p=2)
+        # radius = torch.norm(x - self.center, dim=-1, p=2)
+
+        
 
         
         # sin features from NeRF
@@ -332,7 +332,10 @@ class IPHI(nn.Module):
         
             
         xd = self.fc0(xd)
-        xd = torch.cat([xd, x_sin, x_cos], dim=-1).reshape(b,n,2*self.width)
+
+        # if using mesh features, then the input is 3*self.width else 2*self.width
+        # xd = torch.cat([xd, x_sin, x_cos], dim=-1).reshape(b,n,2*self.width)
+        xd = torch.cat([xd, x_sin, x_cos], dim=-1).reshape(b,n,3*self.width)
 
         if code!= None:
             cd = self.fc_code(code)

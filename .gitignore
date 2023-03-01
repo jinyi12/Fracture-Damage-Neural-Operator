@@ -11,4 +11,11 @@
 /.DS_Store
 /artifacts
 /reports
+/Data_Int
+/downsampled_data
+/DS_Model
+/artifacts-ds-reduced-pca
+/artifacts-reduced-pca
+/interpolated_gc_data
+
 
